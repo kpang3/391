@@ -1,0 +1,90 @@
+Katrina Pang
+Bug Log
+
+MP2.1
+
+1) void show_status_bar
+for (i = 0; i < SCROLL_Y_DIM; i++) {
+        addr[p_off * SCROLL_SIZE] = buf[i];
+        addr += SCROLL_X_WIDTH;
+        // if (--p_off < 0) {
+        //     p_off = 3;
+        //     addr++;
+        // }
+    }
+Does not scroll correctly -- the screen would glitch or go in the wrong direction. Had to change code that 
+    was copied from show_screen and copy_image so that the image wouldn't be copied to the status bar.
+
+2) I wasn't indexing into the buffer correctly -- i was getting "random" lines printed along 
+    the status bar, but the correct FGD and BGD colors. The function in text.c was trying to calculate the buffer 
+    addr with the planes... that was not working
+    //buffer[(get_offset(plane, i)) + (BAR_WIDTH / FONT_WIDTH) *j]
+    I was also trying to put the room text and input text in one string and write the char data to buffer but that 
+    was also too difficult to implement.
+    Solution: I had to rethink how I was calculating the buffer -- instead, the buffer was split into the four planes
+    in modex.c. Three different functions were made for the 3 different texts being displayed.
+        
+
+3) Quite a few variables mixed up in for loops -- be more careful!
+
+4) Warning: passing argument 3 of 'text to graphics' discard qualifiers from pointer target type
+ and Warning: pointer targets in passing argument of 'strlen' differ in signedness-- for arguments called in text.c 
+    Solution: cast arguments to correct type (unsigned, const, etc)
+
+MP2.2
+
+1) Issue: First compile no warnings --> TUX does absolutely nothing. 
+    a. LED Display not working: I was either getting d.4 or crashing the kernel/
+        TUX. I tried hard coding values into the led_buffer and still nothing. 
+
+        Solution: The main issue was that I didn't even call the SET_LED ioctl...
+        I was so tired at this point I forgot I had to call the functions. The 
+        other issue might have been that TUX_init was defined below the function   
+        it was called in.
+
+    b. LED Display not working: After I got the hardcoded numbers to show, I 
+        realized the argument passed in wasn't showing. 
+       
+        Solution: the index into hex_display_data in led_handler was not 
+        shifted after being bitmasked. The code accessing values that don't 
+        exist.
+    
+    c. Time won't print correctly: TUX was not connected to input.c and 
+        display_time(83) = 1.23 would not show up...
+
+        Solution: I spent hours on this bug and I'm still not sure what 
+        the actual problem was. I had ioctl SET_LED called twice with
+        two different values and the time potentially never changed 
+        because of the infinite calls to display not because of an 
+        actual bug...
+
+    d. Time increments every 6 seconds
+
+        Solution: N/A
+
+2) After playing around with/tweaking some of the ioctl functions, I 
+    established that they worked as intended. Except for TUX_BUTTONS...
+    
+    a. Nothing happened at all when I pressed the buttons. At least time 
+        doesn't change.
+
+        Solution: I didn't create a pthread or implement the get_tux_command 
+        in the proper spot in game_loop.
+
+    b. RLDU and CBA are switched: the left button doesn't do anything and 
+        the motions are reversed. Either I messed up the argument rearrangement
+        in ioctl or the switch commands.
+
+        Solution: Turns out I read MTCP wrong and the argument was supposed to 
+        be CBAS RDLU not RLDU CBAS. I had to change the MTCP_buttons ioctl to 
+        arrange the button_packet correctly.
+    
+    c. ABC scroll when pressed: only RLDU should allow spamming a command by 
+        holding it down. ABC should only move once each time a button is pushed.
+
+        Solution: I had to create a local variable to store the last pressed cmd.
+        I added if statements in the switch statements to make sure CBAS only work
+        if they were pressed once.
+
+    
+
